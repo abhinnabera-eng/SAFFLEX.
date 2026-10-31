@@ -1,0 +1,458 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SAFFLEX - Know the Link. Stay Safe.</title>
+
+<style>
+:root {
+  --bg: #101827;
+  --panel: #192638;
+  --green: #55e0b4;
+  --text: #f4f7fb;
+  --muted: #aab8c9;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: Arial, sans-serif;
+}
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 22px 7%;
+  border-bottom: 1px solid #304054;
+}
+.logo {
+  color: var(--green);
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+select, input, button {
+  font: inherit;
+}
+select {
+  background: var(--panel);
+  color: white;
+  padding: 10px;
+  border: 1px solid #52647a;
+  border-radius: 8px;
+}
+main {
+  width: min(680px, 92%);
+  margin: 65px auto;
+  text-align: center;
+}
+h1 {
+  font-size: clamp(30px, 6vw, 46px);
+  margin-bottom: 10px;
+}
+.highlight { color: var(--green); }
+.subtitle {
+  color: var(--muted);
+  line-height: 1.7;
+}
+.scanner {
+  background: var(--panel);
+  border: 1px solid #304054;
+  padding: 25px;
+  border-radius: 16px;
+  margin-top: 30px;
+}
+input {
+  width: 100%;
+  padding: 16px;
+  border-radius: 9px;
+  border: 1px solid #52647a;
+  background: #101827;
+  color: white;
+  outline: none;
+  margin: 12px 0;
+}
+input:focus { border-color: var(--green); }
+button {
+  width: 100%;
+  padding: 15px;
+  background: var(--green);
+  color: #10251f;
+  font-weight: bold;
+  border: none;
+  border-radius: 9px;
+  cursor: pointer;
+}
+button:disabled { opacity: .6; cursor: wait; }
+#result {
+  display: none;
+  background: var(--panel);
+  border: 1px solid #304054;
+  padding: 25px;
+  border-radius: 16px;
+  margin-top: 20px;
+  text-align: left;
+}
+.score {
+  font-size: 48px;
+  font-weight: bold;
+  margin: 12px 0;
+}
+.meter {
+  height: 12px;
+  background: #344257;
+  border-radius: 20px;
+  overflow: hidden;
+}
+#meterFill {
+  height: 100%;
+  width: 0;
+  transition: width .4s;
+}
+#resultTitle { font-size: 21px; }
+#reasons { padding-left: 22px; line-height: 1.7; }
+.note {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin-top: 20px;
+}
+footer {
+  text-align: center;
+  color: var(--muted);
+  padding: 25px;
+  font-size: 13px;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="logo">SAFFLEX</div>
+  <select id="language" aria-label="Choose language">
+    <option value="en">English</option>
+    <option value="hi">हिंदी</option>
+    <option value="bn">বাংলা</option>
+  </select>
+</header>
+
+<main>
+  <h1 id="heading">Know the Link. <span class="highlight">Stay Safe.</span></h1>
+  <p class="subtitle" id="subtitle">
+    Check suspicious links before you click.
+    Understand the risk in simple language.
+  </p>
+
+  <section class="scanner">
+    <h2 id="scanHeading">Check a suspicious link</h2>
+    <p class="subtitle" id="scanDescription">
+      Paste the URL you want SAFFLEX to examine.
+    </p>
+
+    <form id="scanForm">
+      <input
+        id="urlInput"
+        type="url"
+        placeholder="https://example.com"
+        autocomplete="url"
+        required
+      >
+      <button id="scanButton" type="submit">
+        Scan URL
+      </button>
+    </form>
+    <p class="note" id="privacyNote">
+      SAFFLEX checks the submitted URL. It does not need to open
+      the destination website in your browser.
+    </p>
+  </section>
+
+  <section id="result" aria-live="polite">
+    <h2 id="resultTitle"></h2>
+    <div class="score" id="score">--/100</div>
+    <div class="meter">
+      <div id="meterFill"></div>
+    </div>
+    <p id="riskDescription"></p>
+    <h3 id="reasonHeading"></h3>
+    <ul id="reasons"></ul>
+    <p class="note" id="disclaimer"></p>
+  </section>
+</main>
+
+<footer id="footer">
+  SAFFLEX | Making the internet safer, one link at a time.
+</footer>
+
+<script>
+const API_URL = "/api/scan";
+
+const translations = {
+  en: {
+    heading: "Know the Link. Stay Safe.",
+    subtitle: "Check suspicious links before you click. Understand the risk in simple language.",
+    scanHeading: "Check a suspicious link",
+    scanDescription: "Paste the URL you want SAFFLEX to examine.",
+    placeholder: "Paste a URL here",
+    button: "Scan URL",
+    scanning: "Scanning...",
+    privacy: "SAFFLEX checks the submitted URL. It does not need to open the destination website in your browser.",
+    invalid: "Please enter a valid HTTP or HTTPS URL.",
+    error: "We could not complete the scan. Please try again later.",
+    low: "Low risk — No known threat found",
+    medium: "Medium risk — Be cautious",
+    high: "High risk — Potential danger detected",
+    unknown: "Unable to scan this URL",
+    lowDesc: "No matching known threat was returned. This does not guarantee that the link is safe.",
+    mediumDesc: "Some warning signs were detected. Avoid sharing passwords, payment details or personal information.",
+    highDesc: "The scanner found serious warning signs or a known threat. Do not visit this link or enter information.",
+    unknownDesc: "The scanning service could not provide a reliable result. Do not assume this link is safe.",
+    reasonsHeading: "Why did SAFFLEX give this result?",
+    noReasons: "No additional explanation was provided by the scanner.",
+    disclaimer: "Risk score is an indicator, not a guarantee or a probability of fraud. Even low-risk links may be dangerous.",
+    reasons: {
+      known_phishing: "This URL matches a known phishing threat. It may try to steal passwords or account details.",
+      known_malware: "This URL is associated with malware that may harm your device or data.",
+      unwanted_software: "This URL is associated with unwanted software.",
+      suspicious_pattern: "The URL contains patterns that may be used to mislead visitors.",
+      lookalike_domain: "The domain resembles another website and may be trying to impersonate it.",
+      unusual_url: "The URL has unusual characteristics that deserve caution."
+    },
+    footer: "SAFFLEX | Making the internet safer, one link at a time."
+  },
+
+  hi: {
+    heading: "लिंक को जानें। सुरक्षित रहें।",
+    subtitle: "क्लिक करने से पहले संदिग्ध लिंक की जाँच करें और जोखिम को आसान भाषा में समझें।",
+    scanHeading: "संदिग्ध लिंक की जाँच करें",
+    scanDescription: "वह URL डालें जिसकी जाँच आप SAFFLEX से करवाना चाहते हैं।",
+    placeholder: "यहाँ URL डालें",
+    button: "URL जाँचें",
+    scanning: "जाँच हो रही है...",
+    privacy: "SAFFLEX दिए गए URL की जाँच करता है। इसे आपके ब्राउज़र में वेबसाइट खोलने की आवश्यकता नहीं है।",
+    invalid: "कृपया सही HTTP या HTTPS लिंक डालें।",
+    error: "जाँच पूरी नहीं हो सकी। कृपया बाद में फिर कोशिश करें।",
+    low: "कम जोखिम — कोई ज्ञात खतरा नहीं मिला",
+    medium: "मध्यम जोखिम — सावधान रहें",
+    high: "अधिक जोखिम — संभावित खतरा मिला",
+    unknown: "इस लिंक की जाँच नहीं हो सकी",
+    lowDesc: "स्कैनर को कोई ज्ञात खतरा नहीं मिला। इसका मतलब यह नहीं है कि लिंक पूरी तरह सुरक्षित है।",
+    mediumDesc: "कुछ चेतावनी के संकेत मिले हैं। पासवर्ड, भुगतान की जानकारी या निजी जानकारी साझा न करें।",
+    highDesc: "स्कैनर को गंभीर चेतावनी या ज्ञात खतरा मिला है। इस लिंक को न खोलें और कोई जानकारी न डालें।",
+    unknownDesc: "स्कैनिंग सेवा भरोसेमंद परिणाम नहीं दे सकी। इस लिंक को सुरक्षित न मानें।",
+    reasonsHeading: "SAFFLEX ने यह परिणाम क्यों दिया?",
+    noReasons: "स्कैनर ने कोई अतिरिक्त जानकारी नहीं दी।",
+    disclaimer: "जोखिम स्कोर केवल एक संकेत है, सुरक्षा की गारंटी या धोखाधड़ी की संभावना नहीं। कम जोखिम वाला लिंक भी खतरनाक हो सकता है।",
+    reasons: {
+      known_phishing: "यह लिंक एक ज्ञात फ़िशिंग खतरे से मेल खाता है। इसका उद्देश्य पासवर्ड या खाते की जानकारी चुराना हो सकता है।",
+      known_malware: "यह लिंक हानिकारक सॉफ़्टवेयर से जुड़ा है, जो आपके डिवाइस या डेटा को नुकसान पहुँचा सकता है।",
+      unwanted_software: "यह लिंक अवांछित सॉफ़्टवेयर से जुड़ा है।",
+      suspicious_pattern: "इस लिंक में ऐसे संकेत हैं जिनका इस्तेमाल लोगों को गुमराह करने के लिए हो सकता है।",
+      lookalike_domain: "इस वेबसाइट का नाम किसी दूसरी वेबसाइट जैसा दिखता है और यह उसकी नकल कर सकती है।",
+      unusual_url: "इस लिंक में कुछ असामान्य बातें हैं, इसलिए सावधानी ज़रूरी है।"
+    },
+    footer: "SAFFLEX | हर लिंक के साथ, इंटरनेट को और सुरक्षित बनाएँ।"
+  },
+
+  bn: {
+    heading: "লিঙ্ক চিনুন। নিরাপদ থাকুন।",
+    subtitle: "ক্লিক করার আগে সন্দেহজনক লিঙ্ক পরীক্ষা করুন এবং সহজ ভাষায় ঝুঁকি বুঝুন।",
+    scanHeading: "সন্দেহজনক লিঙ্ক পরীক্ষা করুন",
+    scanDescription: "যে URL-টি পরীক্ষা করতে চান, সেটি এখানে দিন।",
+    placeholder: "এখানে URL পেস্ট করুন",
+    button: "URL পরীক্ষা করুন",
+    scanning: "পরীক্ষা চলছে...",
+    privacy: "SAFFLEX জমা দেওয়া URL পরীক্ষা করে। ব্রাউজারে গন্তব্য ওয়েবসাইট খোলার প্রয়োজন নেই।",
+    invalid: "অনুগ্রহ করে সঠিক HTTP বা HTTPS লিঙ্ক দিন।",
+    error: "পরীক্ষা সম্পন্ন করা যায়নি। পরে আবার চেষ্টা করুন।",
+    low: "কম ঝুঁকি — পরিচিত কোনো হুমকি পাওয়া যায়নি",
+    medium: "মাঝারি ঝুঁকি — সতর্ক থাকুন",
+    high: "উচ্চ ঝুঁকি — সম্ভাব্য বিপদ শনাক্ত হয়েছে",
+    unknown: "এই লিঙ্কটি পরীক্ষা করা যায়নি",
+    lowDesc: "স্ক্যানারে পরিচিত কোনো হুমকি পাওয়া যায়নি। এর মানে এই নয় যে লিঙ্কটি সম্পূর্ণ নিরাপদ।",
+    mediumDesc: "কিছু সতর্কতার লক্ষণ পাওয়া গেছে। পাসওয়ার্ড, পেমেন্ট বা ব্যক্তিগত তথ্য দেবেন না।",
+    highDesc: "স্ক্যানারে গুরুতর সতর্কতার লক্ষণ বা পরিচিত হুমকি পাওয়া গেছে। এই লিঙ্ক খুলবেন না বা তথ্য দেবেন না।",
+    unknownDesc: "স্ক্যানিং পরিষেবা নির্ভরযোগ্য ফল দিতে পারেনি। এই লিঙ্ককে নিরাপদ ধরে নেবেন না।",
+    reasonsHeading: "SAFFLEX কেন এই ফলাফল দিল?",
+    noReasons: "স্ক্যানার অতিরিক্ত কোনো ব্যাখ্যা দেয়নি।",
+    disclaimer: "ঝুঁকির স্কোর একটি সতর্কবার্তা, নিরাপত্তার নিশ্চয়তা বা প্রতারণার সম্ভাবনা নয়। কম ঝুঁকির লিঙ্কও বিপজ্জনক হতে পারে।",
+    reasons: {
+      known_phishing: "এই URL একটি পরিচিত ফিশিং হুমকির সঙ্গে মিলে গেছে। এটি পাসওয়ার্ড বা অ্যাকাউন্টের তথ্য চুরি করতে পারে।",
+      known_malware: "এই লিঙ্ক ক্ষতিকর সফটওয়্যারের সঙ্গে যুক্ত, যা আপনার ডিভাইস বা তথ্যের ক্ষতি করতে পারে।",
+      unwanted_software: "এই লিঙ্ক অবাঞ্ছিত সফটওয়্যারের সঙ্গে যুক্ত।",
+      suspicious_pattern: "এই লিঙ্কে এমন কিছু বৈশিষ্ট্য আছে যা মানুষকে বিভ্রান্ত করতে পারে।",
+      lookalike_domain: "ওয়েবসাইটের নাম অন্য একটি পরিচিত ওয়েবসাইটের মতো, এটি নকল হতে পারে।",
+      unusual_url: "এই লিঙ্কে কিছু অস্বাভাবিক বৈশিষ্ট্য আছে, তাই সতর্ক থাকা দরকার।"
+    },
+    footer: "SAFFLEX | প্রতিটি লিঙ্কে ইন্টারনেটকে আরও নিরাপদ করি।"
+  }
+};
+
+const language = document.getElementById("language");
+const form = document.getElementById("scanForm");
+const input = document.getElementById("urlInput");
+const button = document.getElementById("scanButton");
+const result = document.getElementById("result");
+
+function t() {
+  return translations[language.value];
+}
+
+function setLanguage() {
+  const x = t();
+  document.documentElement.lang = language.value;
+  document.getElementById("heading").textContent = x.heading;
+  document.getElementById("subtitle").textContent = x.subtitle;
+  document.getElementById("scanHeading").textContent = x.scanHeading;
+  document.getElementById("scanDescription").textContent = x.scanDescription;
+  input.placeholder = x.placeholder;
+  button.textContent = x.button;
+  document.getElementById("privacyNote").textContent = x.privacy;
+  document.getElementById("footer").textContent = x.footer;
+  if (result.style.display === "block" && lastResponse) {
+    displayResult(lastResponse);
+  }
+}
+
+let lastResponse = null;
+
+language.addEventListener("change", setLanguage);
+
+function showMessage(message) {
+  result.style.display = "block";
+  document.getElementById("resultTitle").textContent = message;
+  document.getElementById("score").textContent = "--/100";
+  document.getElementById("meterFill").style.width = "0%";
+  document.getElementById("riskDescription").textContent = "";
+  document.getElementById("reasons").replaceChildren();
+  document.getElementById("reasonHeading").textContent = "";
+  document.getElementById("disclaimer").textContent = "";
+}
+
+function displayResult(data) {
+  const x = t();
+  const title = document.getElementById("resultTitle");
+  const score = document.getElementById("score");
+  const fill = document.getElementById("meterFill");
+  const description = document.getElementById("riskDescription");
+  const reasons = document.getElementById("reasons");
+
+  reasons.replaceChildren();
+
+  if (data.verdict === "unable_to_scan") {
+    title.textContent = x.unknown;
+    score.textContent = "--/100";
+    fill.style.width = "0%";
+    description.textContent = x.unknownDesc;
+  } else {
+    const value = Number(data.riskScore);
+
+    if (!Number.isInteger(value) || value < 0 || value > 100) {
+      showMessage(x.error);
+      return;
+    }
+
+    score.textContent = value + "/100";
+    fill.style.width = value + "%";
+
+    if (data.verdict === "dangerous") {
+      title.textContent = x.high;
+      description.textContent = x.highDesc;
+      fill.style.background = "#ff5252";
+    } else if (value >= 60) {
+      title.textContent = x.high;
+      description.textContent = x.highDesc;
+      fill.style.background = "#ff5252";
+    } else if (value >= 30) {
+      title.textContent = x.medium;
+      description.textContent = x.mediumDesc;
+      fill.style.background = "#ffbd4a";
+    } else {
+      title.textContent = x.low;
+      description.textContent = x.lowDesc;
+      fill.style.background = "#55e0b4";
+    }
+  }
+
+  document.getElementById("reasonHeading").textContent =
+    x.reasonsHeading;
+
+  const codes = Array.isArray(data.reasonCodes)
+    ? data.reasonCodes
+    : [];
+
+  if (codes.length === 0) {
+    const li = document.createElement("li");
+    li.textContent = x.noReasons;
+    reasons.appendChild(li);
+  } else {
+    codes.forEach(code => {
+      const li = document.createElement("li");
+      li.textContent = x.reasons[code] || x.noReasons;
+      reasons.appendChild(li);
+    });
+  }
+
+  document.getElementById("disclaimer").textContent = x.disclaimer;
+  result.style.display = "block";
+}
+
+form.addEventListener("submit", async function(event) {
+  event.preventDefault();
+
+  let parsed;
+  try {
+    parsed = new URL(input.value.trim());
+    if (!["http:", "https:"].includes(parsed.protocol) ||
+        !parsed.hostname || parsed.username || parsed.password) {
+      throw new Error("Invalid URL");
+    }
+  } catch {
+    showMessage(t().invalid);
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = t().scanning;
+  result.style.display = "none";
+  lastResponse = null;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const response = await fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: parsed.href }),
+      signal: controller.signal
+    });
+
+    if (!response.ok) throw new Error("Scan service error");
+
+    const data = await response.json();
+
+    if (!["dangerous", "no_known_threat", "unable_to_scan"]
+        .includes(data.verdict)) {
+      throw new Error("Invalid scan response");
+    }
+
+    lastResponse = data;
+    displayResult(data);
+  } catch (error) {
+    showMessage(t().error);
+  } finally {
+    clearTimeout(timeout);
+    button.disabled = false;
+    button.textContent = t().button;
+  }
+});
+
+setLanguage();
+</script>
+</body>
+</html>
